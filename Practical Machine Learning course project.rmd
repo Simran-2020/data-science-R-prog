@@ -1,0 +1,147 @@
+---
+title: "Practical Machine Learning Project"
+author: "Simran"
+date: "06/01/2021"
+output: html_document
+---
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+The goal of this project is to predict the manner of performing unilateral dumbbell biceps curls based on data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The 5 possible methods include -
+
+A: exactly according to the specification
+B: throwing the elbows to the front
+C: lifting the dumbbell only halfway
+D: lowering the dumbbell only halfway
+E: throwing the hips to the front
+
+
+```{r}
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+library(corrplot)
+set.seed(12345)
+```
+
+Setting working directory
+```{r}
+getwd()
+```
+Loading  data 
+```{r}
+
+train_data <- read.csv("C:/Users/dell/Documents/pml-training.csv", header = TRUE)
+dim(train_data)
+```
+
+```{r}
+test_data<-read.csv("C:/Users/dell/Documents/pml-testing.csv", header = TRUE)
+dim(test_data)
+```
+Removing missing values.Hence the dimension of the data set is reduced
+
+```{r}
+trainData<- train_data[, colSums(is.na(train_data)) == 0]
+dim(trainData)
+```
+
+```{r}
+validData <- test_data[, colSums(is.na(test_data)) == 0]
+dim(validData)
+```
+
+```{r}
+trainData <- trainData[, -c(1:7)]
+dim(trainData)
+```
+
+```{r}
+validData <- validData[, -c(1:7)]
+dim(validData)
+```
+Partioning the dataset into training and test data where 75% is used for training and 25% for testing.
+
+```{r}
+set.seed(1234) 
+inTrain <- createDataPartition(train_data$classe, p = 0.75, list = FALSE)
+trainData <-trainData[inTrain, ]
+testData <- trainData[-inTrain, ]
+dim(trainData)
+dim(testData)
+```
+
+Removing the variables with zero variance
+```{r}
+NZV <- nearZeroVar(trainData)
+trainData <-trainData[, -NZV]
+testData  <-testData[, -NZV]
+dim(trainData)
+dim(testData)
+
+```
+
+Before building the model we  analyse the  correlation among variables 
+
+```{r}
+
+correlation_mat <- cor(trainData[, -53])
+corrplot(correlation_mat, order = "FPC", method = "color", type = "upper", 
+         tl.cex = 0.8, tl.col = rgb(0, 0, 0))
+```
+#Prediction Model Building
+Two methods are applied to model the regressions using the Train dataset and the best one which has  higher accuracy when applied to the Test dataset will be used for the quiz predictions. The methods are: Random Forests and  Decision Tree as described below.
+A Confusion Matrix is plotted at the end of each analysis to visualize the accuracy of the models.
+
+a) Method: Random Forest
+
+Determining the model
+```{r}
+modFit <- randomForest(classe ~. , data=trainData)
+```
+
+Validating the model on test data and finding the accuracy
+```{r}
+predictions <- predict(modFit, testData, type = "class")
+rf<-confusionMatrix(predictions, testData$classe)
+rf
+```
+
+Plotting the accuracy
+```{r}
+plot(rf$table, col = rf$byClass, main = paste("Random Forest Confusion Matrix: Accuracy =", round(rf$overall['Accuracy'], 4)))
+```
+2)Decision Tree 
+
+Determining the model
+```{r}
+set.seed(12345)
+decisionTree <- rpart(classe ~ ., data=trainData, method="class")
+fancyRpartPlot(decisionTree)
+```
+
+Validating the model on test data and finding the accuracy
+
+
+```{r}
+predictTree <- predict(decisionTree, testData, type = "class")
+dtree <- confusionMatrix(predictTree, testData$classe)
+dtree
+```
+
+Plotting the accuracy
+```{r}
+# plot matrix results
+plot(dtree$table, col = dtree$byClass, 
+     main = paste("Decision Tree - Accuracy =", round(dtree$overall['Accuracy'], 4)))
+```
+Conclusion:
+From the above we conclude that the random forest model is the best one. We will then use it to predict the values of classe for the test data set.
+
+```{r}
+FinalTestPred <- predict(modFit,newdata=trainData)
+FinalTestPred
+```
+##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E
